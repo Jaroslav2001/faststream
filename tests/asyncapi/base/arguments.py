@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Optional, Type
+from typing import Generic, Optional, Type, TypeVar
 
 import pydantic
 from dirty_equals import IsDict, IsPartialDict
@@ -226,6 +226,64 @@ class FastAPICompatible:
                 "title": key,
                 "type": "object",
             }
+
+    def test_pydantic_model_with_generic(self):
+        T = TypeVar("T")
+
+        if PYDANTIC_V2:
+            TITLE_NAME = "Container[FastAPICompatible.test_pydantic_model_with_generic.<locals>.User]"
+
+            class BaseModel(pydantic.BaseModel):
+                ...
+
+        else:
+            from pydantic.generics import GenericModel
+
+            TITLE_NAME = "Container[User]"
+
+            class BaseModel(GenericModel):
+                ...
+
+        class Container(BaseModel, Generic[T]):
+            data: T
+            count: int
+
+        class User(pydantic.BaseModel):
+            name: str = ""
+            id: int
+
+        broker = self.broker_class()
+
+        @broker.subscriber("test")
+        async def handle(user: Container[User]):
+            ...
+
+        schema = get_app_schema(self.build_app(broker)).to_jsonable()
+
+        payload = schema["components"]["schemas"]
+
+        print(payload)
+
+        assert payload == {
+            "User": {
+                "properties": {
+                    "name": {"default": "", "title": "Name", "type": "string"},
+                    "id": {"title": "Id", "type": "integer"},
+                },
+                "required": ["id"],
+                "title": "User",
+                "type": "object",
+            },
+            TITLE_NAME: {
+                "properties": {
+                    "data": {"$ref": "#/components/schemas/User"},
+                    "count": {"title": "Count", "type": "integer"},
+                },
+                "required": ["data", "count"],
+                "title": TITLE_NAME,
+                "type": "object",
+            },
+        }
 
     def test_pydantic_model_with_enum(self):
         class Status(str, Enum):

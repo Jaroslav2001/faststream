@@ -1,5 +1,5 @@
 from inspect import isclass
-from typing import Any, Dict, Optional, Sequence, Type, overload
+from typing import Any, Dict, Optional, Sequence, Type, get_origin, overload
 
 from fast_depends.core import CallModel
 from pydantic import BaseModel
@@ -169,10 +169,14 @@ def get_model_schema(
     if params_number == 1:
         name, param = tuple(params.items())[0]
 
+        origin = get_origin(param.annotation)
+        if origin is None:
+            origin = param.annotation
+
         if (
-            param.annotation
-            and isclass(param.annotation)
-            and issubclass(param.annotation, BaseModel)  # NOTE: 3.7-3.10 compatibility
+            origin
+            and isclass(origin)
+            and issubclass(origin, BaseModel)  # NOTE: 3.7-3.10 compatibility
         ):
             model = param.annotation
             use_original_model = True
